@@ -28,16 +28,41 @@ contract Factory is AccessControl {
 
     ERC20PresetMinterPauser public token;
 
-    event MintRequestAdded(string _txId, Request _request);
+    event MintRequestAdded(Request _request);
+    event MintCancelled(Request _request);
 
     constructor(ERC20PresetMinterPauser _token) {
         require(address(_token) != address(0), "invalid _token address");
-        
+
         token = _token;
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _setupRole(MINTER_ROLE, _msgSender());
         _setupRole(BURNER_ROLE, _msgSender());
+    }
+
+    function cancelMintRequest(
+        string memory _txId
+    ) external onlyRole(MINTER_ROLE) {
+        require(
+            mintRequest[_txId].requester != address(0),
+            "ID does not match a pending request"
+        );
+
+        Request memory request = mintRequest[_txId];
+
+        require(
+            request.requester != _msgSender(),
+            "Sender must be equal to requester"
+        );
+        require(
+            request.status == RequestStatus.PENDING,
+            "Request is not pending"
+        );
+
+        request.status = RequestStatus.CANCELLED;
+
+        emit MintCancelled(request);
     }
 
     function addMintRequest(
@@ -73,6 +98,6 @@ contract Factory is AccessControl {
 
         mintRequest[_txId] = request;
 
-        emit MintRequestAdded(_txId, request);
+        emit MintRequestAdded(request);
     }
 }
