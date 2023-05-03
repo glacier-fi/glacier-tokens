@@ -1,1 +1,8 @@
-image: gitpod/workspace-node:2023-05-02-12-55-13
+tasks:
+  - name: Setup dev environment
+    before: |
+      echo "MNEMONIC=$MOONBASE" >> .env
+      echo "ETHERSCAN_API_KEY=$ETHERSCAN" >> .env
+    init: |
+      npm install
+      npm run compile
