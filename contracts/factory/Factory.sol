@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 contract Factory is AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -19,7 +20,6 @@ contract Factory is AccessControl {
     struct Request {
         address requester;
         uint256 amount;
-        string txId;
         uint timestamp;
         RequestStatus status;
     }
@@ -28,11 +28,12 @@ contract Factory is AccessControl {
 
     ERC20PresetMinterPauser public token;
 
-    event MintRequestAdded(string _txId, Request _request);
+    event MintRequestAdded(Request request);
+    event MintRequestCancelled(Request request);
 
     constructor(ERC20PresetMinterPauser _token) {
-        require(address(_token) != address(0), "invalid _token address");
-        
+        require(address(_token) != address(0), Errors.INVALID_ADDRESS);
+
         token = _token;
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
@@ -40,39 +41,32 @@ contract Factory is AccessControl {
         _setupRole(BURNER_ROLE, _msgSender());
     }
 
-    function addMintRequest(
-        uint256 _amount,
-        string memory _txId
-    ) external onlyRole(MINTER_ROLE) {
-        require(_amount > 0, "Amount must be greater than 0");
+    modifier onlyMinter() {
+        require(hasRole(MINTER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
+        _;
+    }
 
-        Request memory previous = mintRequest[_txId];
+    function cancelMintRequest(string memory txId) external onlyMinter {
+        require(mintRequest[txId].amount > 0, Errors.NOT_FOUND);
+        require(mintRequest[txId].requester == _msgSender(), Errors.SENDER_NOT_EQUAL_REQUESTER);
+        require(mintRequest[txId].status == RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
 
-        if (previous.requester != address(0)) {
-            revert(
-                string.concat(
-                    "AddMintRequest: txId ",
-                    _txId,
-                    " amount ",
-                    Strings.toString(_amount),
-                    " requested by ",
-                    Strings.toHexString(_msgSender()),
-                    " already sent it by ",
-                    Strings.toHexString(previous.requester)
-                )
-            );
-        }
+        mintRequest[txId].status = RequestStatus.CANCELLED;
 
-        Request memory request = Request({
+        emit MintRequestCancelled(mintRequest[txId]);
+    }
+
+    function addMintRequest(uint256 amount, string memory txId) external onlyMinter {
+        require(amount > 0, Errors.INVALID_AMOUNT);
+        require(mintRequest[txId].amount == 0, Errors.REQUEST_ALREADY_EXISTS);
+
+        mintRequest[txId] = Request({
             requester: _msgSender(),
-            amount: _amount,
-            txId: _txId,
+            amount: amount,
             timestamp: block.timestamp,
             status: RequestStatus.PENDING
         });
 
-        mintRequest[_txId] = request;
-
-        emit MintRequestAdded(_txId, request);
+        emit MintRequestAdded(mintRequest[txId]);
     }
 }

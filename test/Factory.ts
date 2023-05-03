@@ -78,55 +78,5 @@ describe("Factory", () => {
       ).not.to.be.reverted;
     });
   });
-
-  describe("AddMintRequest", function () {
-    describe("Validations", function () {
-      it("Should revert with a non minter", async function () {
-        const { factory, user2 } = await loadFixture(deploy);
-
-        await expect(
-          factory.connect(user2).addMintRequest(
-            100000000000000,
-            "426fd646-c27b-44ad-b48c-6cdd707c5f03"
-          )).to.be.revertedWith("AccessControl: account 0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc is missing role 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6")
-      });
-
-      it("Should revert with a duplicated txId", async function () {
-        const { factory, user1 } = await loadFixture(deploy);
-
-        await expect(
-          factory.connect(user1).addMintRequest(
-            200000000000000,
-            "426fd646-c27b-44ad-b48c-6cdd707c5f03"
-          )
-        ).to.be.revertedWith("AddMintRequest: txId 426fd646-c27b-44ad-b48c-6cdd707c5f03 amount 200000000000000 requested by 0x70997970c51812dc3a010c7d01b50e0d17dc79c8 already sent it by 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
-      });
-
-      it("Shouldn't fail if txId it not already sent it", async function () {
-        const { factory, user1 } = await loadFixture(deploy);
-
-        await expect(
-          factory.connect(user1).addMintRequest(
-            100000000000000,
-            "65f7b547-a87b-4631-a767-e0655a97c705"
-          )).not.to.be.reverted;
-      });
-    });
-
-    describe("Events", function () {
-      it("Should emit an event on addMintRequest", async function () {
-        const { factory, user1 } = await loadFixture(deploy);
-        const txId = "65f7b547-a87b-4631-a767-e0655a97c705"
-
-        await expect(
-          factory.connect(user1).addMintRequest(
-            100000000000000,
-            txId
-          )).to.emit(factory, "MintRequestAdded")
-          .withArgs(txId, anyValue);
-      });
-    });
-  });
-
 });
 

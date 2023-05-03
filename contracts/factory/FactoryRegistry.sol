@@ -36,31 +36,23 @@ contract FactoryRegistry is Ownable {
     }
 
     function registerFactory(address factory, uint256 id) external onlyOwner {
-        require(address(factory) != address(0), "Invalid factory address");
+        require(address(factory) != address(0), Errors.INVALID_ADDRESS);
 
         _factories[factory] = id;
         _addToFactoriesList(factory);
         Factory f = Factory(factory);
         ERC20PresetMinterPauser t = ERC20PresetMinterPauser(f.token());
 
-        emit FactoryRegistered(
-            factory,
-            t.name(),
-            t.symbol(),
-            t.decimals(),
-            address(t)
-        );
+        emit FactoryRegistered(factory, t.name(), t.symbol(), t.decimals(), address(t));
     }
 
     function unregisterFactory(address factory) external onlyOwner {
-        require(_factories[factory] > 0, "Factory not registered");
+        require(_factories[factory] > 0, Errors.NOT_FOUND);
         _factories[factory] = 0;
         emit FactoryUnregistered(factory);
     }
 
-    function getFactoryByAddress(
-        address factory
-    ) external view returns (uint256) {
+    function getFactoryByAddress(address factory) external view returns (uint256) {
         return _factories[factory];
     }
 

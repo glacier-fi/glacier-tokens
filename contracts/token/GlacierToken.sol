@@ -10,8 +10,7 @@ contract GlacierToken is ERC20PresetMinterPauser {
         _decimals = __decimals;
     }
 
-    function decimals() override public view returns(uint8) {
+    function decimals() public view override returns (uint8) {
         return _decimals;
     }
 }
-
