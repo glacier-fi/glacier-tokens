@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import "./Factory.sol";
+import "hardhat/console.sol";
 
 contract FactoryRegistry is Ownable {
     mapping(address => bool) private _factories;
@@ -32,6 +33,7 @@ contract FactoryRegistry is Ownable {
         assembly {
             mstore(activeFactories, activeCount)
         }
+
         return activeFactories;
     }
 
@@ -43,12 +45,12 @@ contract FactoryRegistry is Ownable {
         }
         _factories[factory] = true;
 
+        _addToFactoriesList(factory);
+
         Factory f = Factory(factory);
         ERC20PresetMinterPauser t = ERC20PresetMinterPauser(f.token());
 
         emit FactoryRegistered(factory, t.name(), t.symbol(), t.decimals(), address(t));
-
-        _factoriesList.push(factory);
     }
 
     function unregisterFactory(address factory) external onlyOwner {
@@ -56,5 +58,17 @@ contract FactoryRegistry is Ownable {
         _factories[factory] = false;
 
         emit FactoryUnregistered(factory);
+    }
+
+    function _addToFactoriesList(address factory) internal {
+        uint256 factoryCount = _factoriesList.length;
+
+        for (uint256 i = 0; i < factoryCount; i++) {
+            if (_factoriesList[i] == factory) {
+                return;
+            }
+        }
+
+        _factoriesList.push(factory);
     }
 }
