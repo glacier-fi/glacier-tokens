@@ -9,4 +9,5 @@ library Errors {
     string public constant REQUEST_NOT_PENDING = "4";
     string public constant REQUEST_ALREADY_EXISTS = "5";
     string public constant INVALID_AMOUNT = "6";
+    string public constant INVALID_ID = "7";
 }
