@@ -54,38 +54,38 @@ contract Factory is AccessControl {
         _;
     }
 
-    function confirmMintRequest(string memory txId) public onlyConfirmer {
-        require(mintRequest[txId].amount > 0, Errors.NOT_FOUND);
-        require(mintRequest[txId].status == RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+    function confirmMintRequest(string memory id) public onlyConfirmer {
+        require(mintRequest[id].amount > 0, Errors.NOT_FOUND);
+        require(mintRequest[id].status == RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
 
-        mintRequest[txId].status = RequestStatus.APPROVED;
+        mintRequest[id].status = RequestStatus.APPROVED;
 
-        emit MintRequestConfirmed(mintRequest[txId]);
+        emit MintRequestConfirmed(mintRequest[id]);
 
-        token.mint(mintRequest[txId].requester, mintRequest[txId].amount);
+        token.mint(mintRequest[id].requester, mintRequest[id].amount);
     }
 
-    function cancelMintRequest(string memory txId) external onlyMinter {
-        require(mintRequest[txId].amount > 0, Errors.NOT_FOUND);
-        require(mintRequest[txId].requester == _msgSender(), Errors.SENDER_NOT_EQUAL_REQUESTER);
-        require(mintRequest[txId].status == RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+    function cancelMintRequest(string memory id) external onlyMinter {
+        require(mintRequest[id].amount > 0, Errors.NOT_FOUND);
+        require(mintRequest[id].requester == _msgSender(), Errors.SENDER_NOT_EQUAL_REQUESTER);
+        require(mintRequest[id].status == RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
 
-        mintRequest[txId].status = RequestStatus.CANCELLED;
+        mintRequest[id].status = RequestStatus.CANCELLED;
 
-        emit MintRequestCancelled(mintRequest[txId]);
+        emit MintRequestCancelled(mintRequest[id]);
     }
 
-    function addMintRequest(uint256 amount, string memory txId) external onlyMinter {
+    function addMintRequest(uint256 amount, string memory id) external onlyMinter {
         require(amount > 0, Errors.INVALID_AMOUNT);
-        require(mintRequest[txId].amount == 0, Errors.REQUEST_ALREADY_EXISTS);
+        require(mintRequest[id].amount == 0, Errors.REQUEST_ALREADY_EXISTS);
 
-        mintRequest[txId] = Request({
+        mintRequest[id] = Request({
             requester: _msgSender(),
             amount: amount,
             timestamp: block.timestamp,
             status: RequestStatus.PENDING
         });
 
-        emit MintRequestAdded(mintRequest[txId]);
+        emit MintRequestAdded(mintRequest[id]);
     }
 }
