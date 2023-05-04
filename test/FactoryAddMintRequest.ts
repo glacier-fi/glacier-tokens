@@ -1,64 +1,51 @@
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
+import { Errors, factoryDeployScenario, ids } from './global';
 
 describe('Factory', () => {
-  async function deploy() {
-    const [_, user1, user2, user3] = await ethers.getSigners();
+  describe('AddMintRequest', () => {
+    describe('Validations', () => {
+      it('Should revert with a non minter', async () => {
+        const { id0 } = ids();
+        const { factory, burner } = await loadFixture(factoryDeployScenario);
+        const amount = 100000000000000;
 
-    const GlacierToken = await ethers.getContractFactory('GlacierToken');
-    const glacierToken = await GlacierToken.deploy('gCLP', 'gCLP', 8);
-
-    const Factory = await ethers.getContractFactory('Factory');
-    const factory = await Factory.deploy(glacierToken.address);
-
-    await factory.grantRole(factory.MINTER_ROLE(), user1.getAddress());
-    await factory.grantRole(factory.BURNER_ROLE(), user2.getAddress());
-    await factory.addMintRequest(100000000000000, '426fd646-c27b-44ad-b48c-6cdd707c5f03');
-
-    return { factory, user1, user2, user3 };
-  }
-
-  describe('AddMintRequest', function () {
-    describe('Validations', function () {
-      it('Should revert with a non minter', async function () {
-        const { factory, user2 } = await loadFixture(deploy);
-
-        await expect(
-          factory.connect(user2).addMintRequest(100000000000000, '426fd646-c27b-44ad-b48c-6cdd707c5f03'),
-        ).to.be.revertedWith('1');
+        await expect(factory.connect(burner).addMintRequest(amount, id0)).to.be.revertedWith(Errors.UNAUTHORIZED);
       });
 
-      it('Should revert with a duplicated txId', async function () {
-        const { factory, user1 } = await loadFixture(deploy);
+      it('Should revert with a duplicated txId', async () => {
+        const { id0 } = ids();
+        const { factory, minter } = await loadFixture(factoryDeployScenario);
+        const amount = 200000000000000;
 
-        await expect(
-          factory.connect(user1).addMintRequest(200000000000000, '426fd646-c27b-44ad-b48c-6cdd707c5f03'),
-        ).to.be.revertedWith('5');
+        await expect(factory.connect(minter).addMintRequest(amount, id0)).to.be.revertedWith(
+          Errors.REQUEST_ALREADY_EXISTS,
+        );
       });
 
-      it('Should revert with amount equals to zero', async function () {
-        const { factory, user1 } = await loadFixture(deploy);
+      it('Should revert with amount equals to zero', async () => {
+        const { id1 } = ids();
+        const { factory, minter } = await loadFixture(factoryDeployScenario);
+        const amount = 0;
 
-        await expect(
-          factory.connect(user1).addMintRequest(0, '65f7b547-a87b-4631-a767-e0655a97c705'),
-        ).to.be.revertedWith('6');
+        await expect(factory.connect(minter).addMintRequest(amount, id1)).to.be.revertedWith(Errors.INVALID_AMOUNT);
       });
 
-      it('Should Not fail with amount greater than zero', async function () {
-        const { factory, user1 } = await loadFixture(deploy);
-        const txId = '65f7b547-a87b-4631-a767-e0655a97c705';
-        await expect(factory.connect(user1).addMintRequest(100000000000000, txId)).not.to.be.reverted;
+      it('Should Not fail with amount greater than zero', async () => {
+        const { id1 } = ids();
+        const { factory, minter } = await loadFixture(factoryDeployScenario);
+
+        await expect(factory.connect(minter).addMintRequest(100000000000000, id1)).not.to.be.reverted;
       });
     });
 
-    describe('Events', function () {
-      it('Should emit an event on addMintRequest', async function () {
-        const { factory, user1 } = await loadFixture(deploy);
-        const txId = '65f7b547-a87b-4631-a767-e0655a97c705';
+    describe('Events', () => {
+      it('Should emit an event on addMintRequest', async () => {
+        const { id1 } = ids();
+        const { factory, minter } = await loadFixture(factoryDeployScenario);
+        const amount = 100000000000000;
 
-        await expect(factory.connect(user1).addMintRequest(100000000000000, txId)).to.emit(factory, 'MintRequestAdded');
+        await expect(factory.connect(minter).addMintRequest(amount, id1)).to.emit(factory, 'MintRequestAdded');
       });
     });
   });
