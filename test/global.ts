@@ -40,11 +40,14 @@ export const scenario = async () => {
   await gCLPFactory.grantRole(gCLPFactory.MINTER_ROLE(), minter.getAddress());
   await gCLPFactory.grantRole(gCLPFactory.BURNER_ROLE(), burner.getAddress());
   await gCLPFactory.grantRole(gCLPFactory.CONFIRMER_ROLE(), confirmer.getAddress());
+
   await gCLPFactory.addMintRequest(100000000000000, id0);
+  await gCLPFactory.addBurnRequest(100000000000000, id0);
 
   await gUSDTFactory.grantRole(gUSDTFactory.MINTER_ROLE(), minter.getAddress());
   await gUSDTFactory.grantRole(gUSDTFactory.BURNER_ROLE(), burner.getAddress());
   await gUSDTFactory.grantRole(gUSDTFactory.CONFIRMER_ROLE(), confirmer.getAddress());
+
   await gUSDTFactory.addMintRequest(100000000000000, id0);
   await gUSDTFactory.confirmMintRequest(id0);
 
