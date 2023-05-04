@@ -9,6 +9,7 @@ import {Errors} from "../libraries/Errors.sol";
 contract Factory is AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
+    bytes32 public constant CONFIRMER_ROLE = keccak256("CONFIRMER_ROLE");
 
     enum RequestStatus {
         PENDING,
@@ -30,6 +31,7 @@ contract Factory is AccessControl {
 
     event MintRequestAdded(Request request);
     event MintRequestCancelled(Request request);
+    event MintRequestConfirmed(Request request);
 
     constructor(ERC20PresetMinterPauser _token) {
         require(address(_token) != address(0), Errors.INVALID_ADDRESS);
@@ -39,11 +41,28 @@ contract Factory is AccessControl {
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _setupRole(MINTER_ROLE, _msgSender());
         _setupRole(BURNER_ROLE, _msgSender());
+        _setupRole(CONFIRMER_ROLE, _msgSender());
     }
 
     modifier onlyMinter() {
         require(hasRole(MINTER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
         _;
+    }
+
+    modifier onlyConfirmer() {
+        require(hasRole(CONFIRMER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
+        _;
+    }
+
+    function confirmMintRequest(string memory txId) public onlyConfirmer {
+        require(mintRequest[txId].amount > 0, Errors.NOT_FOUND);
+        require(mintRequest[txId].status == RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+
+        mintRequest[txId].status = RequestStatus.APPROVED;
+
+        emit MintRequestConfirmed(mintRequest[txId]);
+
+        token.mint(mintRequest[txId].requester, mintRequest[txId].amount);
     }
 
     function cancelMintRequest(string memory txId) external onlyMinter {
