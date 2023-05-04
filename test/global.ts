@@ -28,8 +28,10 @@ export const factoryDeployScenario = async () => {
 
   await factory.grantRole(factory.MINTER_ROLE(), minter.getAddress());
   await factory.grantRole(factory.BURNER_ROLE(), burner.getAddress());
-  await factory.grantRole(factory.BURNER_ROLE(), confirmer.getAddress());
+  await factory.grantRole(factory.CONFIRMER_ROLE(), confirmer.getAddress());
   await factory.addMintRequest(100000000000000, '426fd646-c27b-44ad-b48c-6cdd707c5f03');
+
+  await glacierToken.grantRole(glacierToken.MINTER_ROLE(), factory.address);
 
   return { factory, admin, minter, burner, confirmer };
 };

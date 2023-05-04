@@ -13,7 +13,7 @@ describe('Factory', () => {
         await expect(factory.connect(burner).addMintRequest(amount, id0)).to.be.revertedWith(Errors.UNAUTHORIZED);
       });
 
-      it('Should revert with a duplicated txId', async () => {
+      it('Should revert with a duplicated id', async () => {
         const { id0 } = ids();
         const { factory, minter } = await loadFixture(factoryDeployScenario);
         const amount = 200000000000000;
