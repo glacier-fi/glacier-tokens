@@ -32,6 +32,7 @@ contract Factory is AccessControl {
     event MintRequestAdded(Request request);
     event MintRequestCancelled(Request request);
     event MintRequestConfirmed(Request request);
+    event MintRequestRejected(Request request);
 
     constructor(ERC20PresetMinterPauser _token) {
         require(address(_token) != address(0), Errors.INVALID_ADDRESS);
@@ -63,6 +64,15 @@ contract Factory is AccessControl {
         emit MintRequestConfirmed(mintRequest[id]);
 
         token.mint(mintRequest[id].requester, mintRequest[id].amount);
+    }
+
+    function rejectMintRequest(string memory id) public onlyConfirmer {
+        require(mintRequest[id].amount > 0, Errors.NOT_FOUND);
+        require(mintRequest[id].status == RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+
+        mintRequest[id].status = RequestStatus.REJECTED;
+
+        emit MintRequestRejected(mintRequest[id]);
     }
 
     function cancelMintRequest(string memory id) external onlyMinter {

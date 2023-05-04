@@ -10,7 +10,7 @@ describe('Factory', () => {
         const { gCLPFactory, burner } = await loadFixture(scenario);
         const amount = 100000000000000;
 
-        expect(gCLPFactory.connect(burner).addMintRequest(amount, id0)).to.be.revertedWith(Errors.UNAUTHORIZED);
+        await expect(gCLPFactory.connect(burner).addMintRequest(amount, id0)).to.be.revertedWith(Errors.UNAUTHORIZED);
       });
 
       it('Should revert with a duplicated id', async () => {
@@ -18,7 +18,7 @@ describe('Factory', () => {
         const { gCLPFactory, minter } = await loadFixture(scenario);
         const amount = 200000000000000;
 
-        expect(gCLPFactory.connect(minter).addMintRequest(amount, id0)).to.be.revertedWith(
+        await expect(gCLPFactory.connect(minter).addMintRequest(amount, id0)).to.be.revertedWith(
           Errors.REQUEST_ALREADY_EXISTS,
         );
       });
@@ -28,14 +28,14 @@ describe('Factory', () => {
         const { gCLPFactory, minter } = await loadFixture(scenario);
         const amount = 0;
 
-        expect(gCLPFactory.connect(minter).addMintRequest(amount, id1)).to.be.revertedWith(Errors.INVALID_AMOUNT);
+        await expect(gCLPFactory.connect(minter).addMintRequest(amount, id1)).to.be.revertedWith(Errors.INVALID_AMOUNT);
       });
 
       it('Should Not fail with amount greater than zero', async () => {
         const { id1 } = ids();
         const { gCLPFactory, minter } = await loadFixture(scenario);
 
-        expect(gCLPFactory.connect(minter).addMintRequest(100000000000000, id1)).not.to.be.reverted;
+        await expect(gCLPFactory.connect(minter).addMintRequest(100000000000000, id1)).not.to.be.reverted;
       });
     });
 
