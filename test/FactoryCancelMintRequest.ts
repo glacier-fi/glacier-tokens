@@ -9,21 +9,21 @@ describe('Factory', () => {
         const { id0 } = ids();
         const { gCLPFactory, burner } = await loadFixture(scenario);
 
-        expect(gCLPFactory.connect(burner).cancelMintRequest(id0)).to.be.revertedWith(Errors.UNAUTHORIZED);
+        await expect(gCLPFactory.connect(burner).cancelMintRequest(id0)).to.be.revertedWith(Errors.UNAUTHORIZED);
       });
 
       it('Should revert with id that does not exists', async () => {
         const { id2 } = ids();
         const { gCLPFactory, minter } = await loadFixture(scenario);
 
-        expect(gCLPFactory.connect(minter).cancelMintRequest(id2)).to.be.revertedWith(Errors.NOT_FOUND);
+        await expect(gCLPFactory.connect(minter).cancelMintRequest(id2)).to.be.revertedWith(Errors.NOT_FOUND);
       });
 
       it('Should revert with sender not equal requester', async () => {
         const { id0 } = ids();
         const { gCLPFactory, minter } = await loadFixture(scenario);
 
-        expect(gCLPFactory.connect(minter).cancelMintRequest(id0)).to.be.revertedWith(
+        await expect(gCLPFactory.connect(minter).cancelMintRequest(id0)).to.be.revertedWith(
           Errors.SENDER_NOT_EQUAL_REQUESTER,
         );
       });
@@ -32,16 +32,16 @@ describe('Factory', () => {
         const { id0 } = ids();
         const { gCLPFactory, admin } = await loadFixture(scenario);
 
-        gCLPFactory.connect(admin).cancelMintRequest(id0);
+        await gCLPFactory.connect(admin).cancelMintRequest(id0);
 
-        expect(gCLPFactory.connect(admin).cancelMintRequest(id0)).to.be.revertedWith(Errors.REQUEST_NOT_PENDING);
+        await expect(gCLPFactory.connect(admin).cancelMintRequest(id0)).to.be.revertedWith(Errors.REQUEST_NOT_PENDING);
       });
 
       it('Should Not fail with a pending request', async () => {
         const { id0 } = ids();
         const { gCLPFactory, admin } = await loadFixture(scenario);
 
-        expect(gCLPFactory.connect(admin).cancelMintRequest(id0)).not.to.be.reverted;
+        await expect(gCLPFactory.connect(admin).cancelMintRequest(id0)).not.to.be.reverted;
       });
     });
 
@@ -50,7 +50,7 @@ describe('Factory', () => {
         const { id0 } = ids();
         const { gCLPFactory, admin } = await loadFixture(scenario);
 
-        expect(gCLPFactory.connect(admin).cancelMintRequest(id0)).to.emit(gCLPFactory, 'MintRequestCancelled');
+        await expect(gCLPFactory.connect(admin).cancelMintRequest(id0)).to.emit(gCLPFactory, 'MintRequestCancelled');
       });
     });
   });
