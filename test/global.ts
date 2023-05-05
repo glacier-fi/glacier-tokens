@@ -8,9 +8,12 @@ export enum Errors {
   REQUEST_NOT_PENDING = '4',
   REQUEST_ALREADY_EXISTS = '5',
   INVALID_AMOUNT = '6',
+  UNAUTHORIZED_TOKEN_ACCESS = '7',
+  NOT_ENOUGH_AVAILABLE_USER_BALANCE = '8',
 }
 
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+export const MAX_UINT_AMOUNT = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
 
 export const ids = () => {
   const id0 = '426fd646-c27b-44ad-b48c-6cdd707c5f03';
@@ -20,7 +23,7 @@ export const ids = () => {
 };
 
 export const scenario = async () => {
-  const [admin, minter, burner, confirmer] = await ethers.getSigners();
+  const [admin, minter, burner, confirmer, user] = await ethers.getSigners();
   const { id0 } = ids();
 
   const GlacierToken = await ethers.getContractFactory('GlacierToken');
@@ -35,21 +38,23 @@ export const scenario = async () => {
   const factoryRegistry = await FactoryRegistry.deploy();
 
   await gCLP.grantRole(gCLP.MINTER_ROLE(), gCLPFactory.address);
-  await gUSDT.grantRole(gUSDT.MINTER_ROLE(), gUSDTFactory.address);
+  await gCLP.connect(user).approve(gCLPFactory.address, MAX_UINT_AMOUNT);
 
   await gCLPFactory.grantRole(gCLPFactory.MINTER_ROLE(), minter.getAddress());
   await gCLPFactory.grantRole(gCLPFactory.BURNER_ROLE(), burner.getAddress());
+  await gCLPFactory.grantRole(gCLPFactory.MINTER_ROLE(), user.getAddress());
+  await gCLPFactory.grantRole(gCLPFactory.BURNER_ROLE(), user.getAddress());
   await gCLPFactory.grantRole(gCLPFactory.CONFIRMER_ROLE(), confirmer.getAddress());
 
-  await gCLPFactory.addMintRequest(100000000000000, id0);
-  await gCLPFactory.addBurnRequest(100000000000000, id0);
+  await gCLPFactory.connect(user).addMintRequest(100000000000000, id0);
+  await gCLPFactory.connect(confirmer).confirmMintRequest(id0);
+  await gCLPFactory.connect(user).addBurnRequest(50000000000000, id0);
 
   await gUSDTFactory.grantRole(gUSDTFactory.MINTER_ROLE(), minter.getAddress());
-  await gUSDTFactory.grantRole(gUSDTFactory.BURNER_ROLE(), burner.getAddress());
-  await gUSDTFactory.grantRole(gUSDTFactory.CONFIRMER_ROLE(), confirmer.getAddress());
+  //await gCLPFactory.connect(user).addBurnRequest(100000000000000, id0);
 
-  await gUSDTFactory.addMintRequest(100000000000000, id0);
-  await gUSDTFactory.confirmMintRequest(id0);
+  //await gUSDTFactory.connect(user).addMintRequest(100000000000000, id0);
+  // await gUSDTFactory.connect(confirmer).confirmMintRequest(id0);
 
-  return { factoryRegistry, gCLPFactory, gUSDTFactory, admin, minter, burner, confirmer };
+  return { factoryRegistry, gCLP, gUSDT, gCLPFactory, gUSDTFactory, admin, minter, burner, confirmer, user };
 };

@@ -5,6 +5,16 @@ import { Errors, scenario, ids } from './global';
 describe('Factory', () => {
   describe('AddMintRequest', () => {
     describe('Validations', () => {
+      it('Should revert with a factory without token access', async () => {
+        const { id0 } = ids();
+        const { gUSDTFactory, minter } = await loadFixture(scenario);
+        const amount = 100000000000000;
+
+        await expect(gUSDTFactory.connect(minter).addMintRequest(amount, id0)).to.be.revertedWith(
+          Errors.UNAUTHORIZED_TOKEN_ACCESS,
+        );
+      });
+
       it('Should revert with a non minter', async () => {
         const { id0 } = ids();
         const { gCLPFactory, burner } = await loadFixture(scenario);

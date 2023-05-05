@@ -5,6 +5,16 @@ import { Errors, scenario, ids, ZERO_ADDRESS } from './global';
 describe('Factory', () => {
   describe('ConfirmMintRequest', function () {
     describe('Validations', function () {
+      it('Should revert with a factory without token access', async () => {
+        const { id0 } = ids();
+        const { gCLPFactory, gCLP, confirmer } = await loadFixture(scenario);
+        await gCLP.revokeRole(gCLP.MINTER_ROLE(), gCLPFactory.address);
+
+        await expect(gCLPFactory.connect(confirmer).confirmMintRequest(id0)).to.be.revertedWith(
+          Errors.UNAUTHORIZED_TOKEN_ACCESS,
+        );
+      });
+
       it('Should revert with a non confirmer', async function () {
         const { id0 } = ids();
         const { gCLPFactory, burner } = await loadFixture(scenario);
@@ -21,9 +31,9 @@ describe('Factory', () => {
 
       it('Should revert if request is not pending', async () => {
         const { id0 } = ids();
-        const { gCLPFactory, admin, confirmer } = await loadFixture(scenario);
+        const { gCLPFactory, user, confirmer } = await loadFixture(scenario);
 
-        gCLPFactory.connect(admin).cancelMintRequest(id0);
+        await gCLPFactory.connect(user).cancelMintRequest(id0);
 
         await expect(gCLPFactory.connect(confirmer).confirmMintRequest(id0)).to.be.revertedWith(
           Errors.REQUEST_NOT_PENDING,

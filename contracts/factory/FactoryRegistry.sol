@@ -18,7 +18,13 @@ contract FactoryRegistry is Ownable {
         address indexed tokenAddress
     );
 
-    event FactoryUnregistered(address indexed factory);
+    event FactoryUnregistered(
+        address indexed factory,
+        string tokenName,
+        string tokenSymbol,
+        uint8 tokenDecimals,
+        address indexed tokenAddress
+    );
 
     function getFactoriesList() public view returns (address[] memory) {
         address[] memory activeFactories = new address[](_factoriesList.length);
@@ -57,7 +63,10 @@ contract FactoryRegistry is Ownable {
         require(_factories[factory], Errors.NOT_FOUND);
         _factories[factory] = false;
 
-        emit FactoryUnregistered(factory);
+        Factory f = Factory(factory);
+        ERC20PresetMinterPauser t = ERC20PresetMinterPauser(f.token());
+
+        emit FactoryUnregistered(factory, t.name(), t.symbol(), t.decimals(), address(t));
     }
 
     function _addToFactoriesList(address factory) internal {

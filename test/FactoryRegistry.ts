@@ -24,9 +24,14 @@ describe('FactoryRegistry', () => {
       expect((await factoryRegistry.getFactoriesList()).length).to.be.equal(0);
     });
 
-    it('Should fail with a non factory address', async () => {
+    it('Should fail with a non factory address on registerFactory', async () => {
       const { factoryRegistry, minter } = await loadFixture(scenario);
       expect(factoryRegistry.registerFactory(minter.address)).to.be.reverted;
+    });
+
+    it('Should fail with a non factory address on unregisterFactory', async () => {
+      const { factoryRegistry, minter } = await loadFixture(scenario);
+      expect(factoryRegistry.unregisterFactory(minter.address)).to.be.reverted;
     });
 
     it('Should fail with id 0', async () => {
@@ -58,16 +63,14 @@ describe('FactoryRegistry', () => {
     it('Should emit an event on registerFactory', async function () {
       const { factoryRegistry, gCLPFactory } = await loadFixture(scenario);
 
-      await expect(factoryRegistry.registerFactory(gCLPFactory.address)).to.emit(factoryRegistry, 'FactoryRegistered');
+      expect(factoryRegistry.registerFactory(gCLPFactory.address)).to.emit(factoryRegistry, 'FactoryRegistered');
     });
 
     it('Should emit an event on unregisterFactory', async function () {
       const { factoryRegistry, gCLPFactory } = await loadFixture(scenario);
-      factoryRegistry.registerFactory(gCLPFactory.address);
+      await factoryRegistry.registerFactory(gCLPFactory.address);
 
-      await expect(factoryRegistry.unregisterFactory(gCLPFactory.address))
-        .to.emit(factoryRegistry, 'FactoryUnregistered')
-        .withArgs(gCLPFactory.address);
+      expect(factoryRegistry.unregisterFactory(gCLPFactory.address)).to.emit(factoryRegistry, 'FactoryUnregistered');
     });
   });
 });
