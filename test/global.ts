@@ -9,6 +9,7 @@ export enum Errors {
   REQUEST_ALREADY_EXISTS = '5',
   INVALID_AMOUNT = '6',
   UNAUTHORIZED_TOKEN_ACCESS = '7',
+  NOT_ENOUGH_AVAILABLE_USER_BALANCE = '8',
 }
 
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
@@ -46,6 +47,8 @@ export const scenario = async () => {
   await gCLPFactory.grantRole(gCLPFactory.CONFIRMER_ROLE(), confirmer.getAddress());
 
   await gCLPFactory.connect(user).addMintRequest(100000000000000, id0);
+  await gCLPFactory.connect(confirmer).confirmMintRequest(id0);
+  await gCLPFactory.connect(user).addBurnRequest(50000000000000, id0);
 
   await gUSDTFactory.grantRole(gUSDTFactory.MINTER_ROLE(), minter.getAddress());
   //await gCLPFactory.connect(user).addBurnRequest(100000000000000, id0);

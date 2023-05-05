@@ -10,4 +10,5 @@ library Errors {
     string public constant REQUEST_ALREADY_EXISTS = "5";
     string public constant INVALID_AMOUNT = "6";
     string public constant UNAUTHORIZED_TOKEN_ACCESS = "7";
+    string public constant NOT_ENOUGH_AVAILABLE_USER_BALANCE = "8";
 }

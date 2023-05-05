@@ -3,9 +3,11 @@ pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {DataTypes} from "../libraries/DataTypes.sol";
+import "hardhat/console.sol";
 
 contract Factory is AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -94,8 +96,11 @@ contract Factory is AccessControl {
     }
 
     function addBurnRequest(uint256 amount, string memory id) external onlyBurner {
+        uint256 userBalance = token.balanceOf(_msgSender());
+
         require(amount > 0, Errors.INVALID_AMOUNT);
         require(burnRequest[id].amount == 0, Errors.REQUEST_ALREADY_EXISTS);
+        require(amount <= userBalance, Errors.NOT_ENOUGH_AVAILABLE_USER_BALANCE);
 
         burnRequest[id] = DataTypes.Request({
             requester: _msgSender(),
@@ -104,7 +109,7 @@ contract Factory is AccessControl {
             status: DataTypes.RequestStatus.PENDING
         });
 
-        require(token.transferFrom(msg.sender, address(this), amount), "can't transfer from sender address");
+        SafeERC20.safeTransferFrom(token, msg.sender, address(this), amount);
 
         emit BurnRequestAdded(burnRequest[id]);
     }
