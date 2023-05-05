@@ -3,11 +3,9 @@ pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {DataTypes} from "../libraries/DataTypes.sol";
-import "hardhat/console.sol";
 
 contract Factory is AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -24,6 +22,7 @@ contract Factory is AccessControl {
     event MintRequestConfirmed(DataTypes.Request request);
     event MintRequestRejected(DataTypes.Request request);
     event BurnRequestAdded(DataTypes.Request request);
+    event BurnRequestCancelled(DataTypes.Request request);
 
     constructor(ERC20PresetMinterPauser _token) {
         require(address(_token) != address(0x0), Errors.INVALID_ADDRESS);
@@ -95,6 +94,18 @@ contract Factory is AccessControl {
         emit MintRequestAdded(mintRequest[id]);
     }
 
+    function cancelBurnRequest(string memory id) external onlyBurner {
+        require(burnRequest[id].amount > 0, Errors.NOT_FOUND);
+        require(burnRequest[id].requester == _msgSender(), Errors.SENDER_NOT_EQUAL_REQUESTER);
+        require(burnRequest[id].status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+
+        burnRequest[id].status = DataTypes.RequestStatus.CANCELLED;
+
+        token.transfer(burnRequest[id].requester, burnRequest[id].amount);
+
+        emit BurnRequestCancelled(mintRequest[id]);
+    }
+
     function addBurnRequest(uint256 amount, string memory id) external onlyBurner {
         uint256 userBalance = token.balanceOf(_msgSender());
 
@@ -109,7 +120,7 @@ contract Factory is AccessControl {
             status: DataTypes.RequestStatus.PENDING
         });
 
-        SafeERC20.safeTransferFrom(token, msg.sender, address(this), amount);
+        token.transferFrom(msg.sender, address(this), amount);
 
         emit BurnRequestAdded(burnRequest[id]);
     }
