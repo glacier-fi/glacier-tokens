@@ -52,12 +52,11 @@ contract Factory is AccessControl {
     function confirmMintRequest(string memory id) external onlyConfirmer {
         require(mintRequest[id].amount > 0, Errors.NOT_FOUND);
         require(mintRequest[id].status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
-
-        mintRequest[id].status = DataTypes.RequestStatus.APPROVED;
-
-        emit MintRequestConfirmed(mintRequest[id]);
+        require(token.hasRole(token.MINTER_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
 
         token.mint(mintRequest[id].requester, mintRequest[id].amount);
+
+        emit MintRequestConfirmed(mintRequest[id]);
     }
 
     function rejectMintRequest(string memory id) external onlyConfirmer {
@@ -82,6 +81,7 @@ contract Factory is AccessControl {
     function addMintRequest(uint256 amount, string memory id) external onlyMinter {
         require(amount > 0, Errors.INVALID_AMOUNT);
         require(mintRequest[id].amount == 0, Errors.REQUEST_ALREADY_EXISTS);
+        require(token.hasRole(token.MINTER_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
 
         mintRequest[id] = DataTypes.Request({
             requester: _msgSender(),
@@ -103,6 +103,8 @@ contract Factory is AccessControl {
             blockhash: blockhash(block.number),
             status: DataTypes.RequestStatus.PENDING
         });
+
+        require(token.transferFrom(msg.sender, address(this), amount), "can't transfer from sender address");
 
         emit BurnRequestAdded(burnRequest[id]);
     }

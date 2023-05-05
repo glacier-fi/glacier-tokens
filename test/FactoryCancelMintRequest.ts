@@ -30,27 +30,27 @@ describe('Factory', () => {
 
       it('Should revert if request is not pending', async () => {
         const { id0 } = ids();
-        const { gCLPFactory, admin } = await loadFixture(scenario);
+        const { gCLPFactory, user } = await loadFixture(scenario);
 
-        await gCLPFactory.connect(admin).cancelMintRequest(id0);
+        await gCLPFactory.connect(user).cancelMintRequest(id0);
 
-        await expect(gCLPFactory.connect(admin).cancelMintRequest(id0)).to.be.revertedWith(Errors.REQUEST_NOT_PENDING);
+        await expect(gCLPFactory.connect(user).cancelMintRequest(id0)).to.be.revertedWith(Errors.REQUEST_NOT_PENDING);
       });
 
       it('Should Not fail with a pending request', async () => {
         const { id0 } = ids();
-        const { gCLPFactory, admin } = await loadFixture(scenario);
+        const { gCLPFactory, user } = await loadFixture(scenario);
 
-        await expect(gCLPFactory.connect(admin).cancelMintRequest(id0)).not.to.be.reverted;
+        await expect(gCLPFactory.connect(user).cancelMintRequest(id0)).not.to.be.reverted;
       });
     });
 
     describe('Events', () => {
       it('Should emit an event on cancelMintRequest', async () => {
         const { id0 } = ids();
-        const { gCLPFactory, admin } = await loadFixture(scenario);
+        const { gCLPFactory, user } = await loadFixture(scenario);
 
-        await expect(gCLPFactory.connect(admin).cancelMintRequest(id0)).to.emit(gCLPFactory, 'MintRequestCancelled');
+        await expect(gCLPFactory.connect(user).cancelMintRequest(id0)).to.emit(gCLPFactory, 'MintRequestCancelled');
       });
     });
   });

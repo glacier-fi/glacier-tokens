@@ -21,9 +21,9 @@ describe('Factory', () => {
 
       it('Should revert if request is not pending', async () => {
         const { id0 } = ids();
-        const { gCLPFactory, admin, confirmer } = await loadFixture(scenario);
+        const { gCLPFactory, user, confirmer } = await loadFixture(scenario);
 
-        await gCLPFactory.connect(admin).cancelMintRequest(id0);
+        await gCLPFactory.connect(user).cancelMintRequest(id0);
 
         await expect(gCLPFactory.connect(confirmer).rejectMintRequest(id0)).to.be.revertedWith(
           Errors.REQUEST_NOT_PENDING,
