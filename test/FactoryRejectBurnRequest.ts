@@ -3,13 +3,13 @@ import { expect } from 'chai';
 import { Errors, scenario, ids, RequestType } from './global';
 
 describe('Factory', () => {
-  describe('RejectMintRequest', () => {
+  describe('RejectBurnRequest', () => {
     describe('Validations', () => {
       it('Should revert with a non confirmer', async () => {
         const { id0 } = ids();
         const { gCLPFactory, burner } = await loadFixture(scenario);
 
-        expect(gCLPFactory.connect(burner).rejectRequest(RequestType.MINT, id0)).to.be.revertedWith(
+        expect(gCLPFactory.connect(burner).rejectRequest(RequestType.BURN, id0)).to.be.revertedWith(
           Errors.UNAUTHORIZED,
         );
       });
@@ -18,7 +18,7 @@ describe('Factory', () => {
         const { id1 } = ids();
         const { gCLPFactory, confirmer } = await loadFixture(scenario);
 
-        expect(gCLPFactory.connect(confirmer).rejectRequest(RequestType.MINT, id1)).to.be.revertedWith(
+        expect(gCLPFactory.connect(confirmer).rejectRequest(RequestType.BURN, id1)).to.be.revertedWith(
           Errors.NOT_FOUND,
         );
       });
@@ -29,7 +29,7 @@ describe('Factory', () => {
 
         await gCLPFactory.connect(user).cancelMintRequest(id0);
 
-        expect(gCLPFactory.connect(confirmer).rejectRequest(RequestType.MINT, id0)).to.be.revertedWith(
+        expect(gCLPFactory.connect(confirmer).rejectRequest(RequestType.BURN, id0)).to.be.revertedWith(
           Errors.REQUEST_NOT_PENDING,
         );
       });
@@ -38,7 +38,7 @@ describe('Factory', () => {
         const { id0 } = ids();
         const { gCLPFactory, confirmer } = await loadFixture(scenario);
 
-        expect(await gCLPFactory.connect(confirmer).rejectRequest(RequestType.MINT, id0)).not.to.be.reverted;
+        expect(await gCLPFactory.connect(confirmer).rejectRequest(RequestType.BURN, id0)).not.to.be.reverted;
       });
     });
 
@@ -47,9 +47,9 @@ describe('Factory', () => {
         const { id0 } = ids();
         const { gCLPFactory, confirmer } = await loadFixture(scenario);
 
-        expect(await gCLPFactory.connect(confirmer).rejectRequest(RequestType.MINT, id0)).to.emit(
+        expect(await gCLPFactory.connect(confirmer).rejectRequest(RequestType.BURN, id0)).to.emit(
           gCLPFactory,
-          'MintRequestRejected',
+          'BurnRequestRejected',
         );
       });
     });
