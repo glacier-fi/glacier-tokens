@@ -14,10 +14,10 @@ contract Factory is AccessControl {
     DataTypes.Request[] public requests;
     ERC20PresetMinterPauser public immutable token;
 
-    event RequestAdded(DataTypes.RequestType, DataTypes.Request request);
-    event RequestRejected(DataTypes.RequestType, DataTypes.Request request);
-    event RequestCancelled(DataTypes.RequestType, DataTypes.Request request);
-    event RequestConfirmed(DataTypes.RequestType, DataTypes.Request request);
+    event RequestAdded(DataTypes.Request request);
+    event RequestRejected(DataTypes.Request request);
+    event RequestCancelled(DataTypes.Request request);
+    event RequestConfirmed(DataTypes.Request request);
 
     constructor(ERC20PresetMinterPauser _token) {
         require(address(_token) != address(0x0), Errors.INVALID_ADDRESS);
@@ -40,50 +40,54 @@ contract Factory is AccessControl {
     }
 
     function confirmRequest(DataTypes.RequestType requestType, string memory id) external onlyConfirmer {
-        DataTypes.Request storage request = requests[requestNonce[id]];
+        if (requestNonce[id] == 0) {
+            revert(Errors.NOT_FOUND);
+        }
 
-        require(request.amount > 0, Errors.NOT_FOUND);
+        DataTypes.Request storage request = requests[requestNonce[id] - 1];
+
+        require(request.requestType == requestType, Errors.SENDER_REQUEST_TYPE_NOT_EQUAL_REQUESTER_REQUEST_TYPE);
         require(request.status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
 
         if (requestType == DataTypes.RequestType.BURN) {
             token.burn(request.amount);
-        } else if (requestType == DataTypes.RequestType.MINT) {
+        } else {
             require(token.hasRole(token.MINTER_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
 
             token.mint(request.requester, request.amount);
-        } else {
-            revert(Errors.INVALID_REQUEST_TYPE);
         }
+
         request.status = DataTypes.RequestStatus.APPROVED;
 
-        emit RequestConfirmed(requestType, request);
+        emit RequestConfirmed(request);
     }
 
     function rejectRequest(DataTypes.RequestType requestType, string memory id) external onlyConfirmer {
-        require(
-            requestType == DataTypes.RequestType.BURN || requestType == DataTypes.RequestType.MINT,
-            Errors.INVALID_REQUEST_TYPE
-        );
+        if (requestNonce[id] == 0) {
+            revert(Errors.NOT_FOUND);
+        }
+        DataTypes.Request storage request = requests[requestNonce[id] - 1];
 
-        DataTypes.Request storage request = requests[requestNonce[id]];
-
-        require(request.amount > 0, Errors.NOT_FOUND);
+        require(request.requestType == requestType, Errors.SENDER_REQUEST_TYPE_NOT_EQUAL_REQUESTER_REQUEST_TYPE);
         require(request.status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
 
         request.status = DataTypes.RequestStatus.REJECTED;
 
-        emit RequestRejected(requestType, request);
+        if (requestType == DataTypes.RequestType.BURN) {
+            token.transfer(request.requester, request.amount);
+        }
+
+        emit RequestRejected(request);
     }
 
     function cancelRequest(DataTypes.RequestType requestType, string memory id) external onlyUser {
-        require(
-            requestType == DataTypes.RequestType.BURN || requestType == DataTypes.RequestType.MINT,
-            Errors.INVALID_REQUEST_TYPE
-        );
+        if (requestNonce[id] == 0) {
+            revert(Errors.NOT_FOUND);
+        }
 
-        DataTypes.Request storage request = requests[requestNonce[id]];
+        DataTypes.Request storage request = requests[requestNonce[id] - 1];
 
-        require(request.amount > 0, Errors.NOT_FOUND);
+        require(request.requestType == requestType, Errors.SENDER_REQUEST_TYPE_NOT_EQUAL_REQUESTER_REQUEST_TYPE);
         require(request.requester == _msgSender(), Errors.SENDER_NOT_EQUAL_REQUESTER);
         require(request.status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
 
@@ -93,7 +97,7 @@ contract Factory is AccessControl {
             token.transfer(request.requester, request.amount);
         }
 
-        emit RequestCancelled(requestType, request);
+        emit RequestCancelled(request);
     }
 
     function addRequest(DataTypes.RequestType requestType, uint256 amount, string memory id) external onlyUser {
@@ -106,32 +110,30 @@ contract Factory is AccessControl {
         if (requestType == DataTypes.RequestType.BURN) {
             uint256 userBalance = token.balanceOf(_msgSender());
             require(amount <= userBalance, Errors.NOT_ENOUGH_AVAILABLE_USER_BALANCE);
-        } else if (requestType == DataTypes.RequestType.MINT) {
-            require(token.hasRole(token.MINTER_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
         } else {
-            revert(Errors.INVALID_REQUEST_TYPE);
+            require(token.hasRole(token.MINTER_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
         }
 
         uint256 blockNumber = block.number;
         bytes32 blockHash = blockhash(blockNumber);
 
-        requestNonce[id] = requests.length;
+        requestNonce[id] = requests.length + 1;
 
-        requests.push(
-            DataTypes.Request({
-                nonce: requestNonce[id],
-                requestType: requestType,
-                requester: _msgSender(),
-                amount: amount,
-                blockhash: blockHash,
-                status: DataTypes.RequestStatus.PENDING
-            })
-        );
+        DataTypes.Request memory request = DataTypes.Request({
+            nonce: requestNonce[id],
+            requestType: requestType,
+            requester: _msgSender(),
+            amount: amount,
+            blockhash: blockHash,
+            status: DataTypes.RequestStatus.PENDING
+        });
+
+        requests.push(request);
 
         if (requestType == DataTypes.RequestType.BURN) {
             token.transferFrom(msg.sender, address(this), amount);
         }
 
-        emit RequestAdded(requestType, requests[requestNonce[id]]);
+        emit RequestAdded(request);
     }
 }

@@ -14,8 +14,10 @@
     "@nomicfoundation/hardhat-toolbox": "^2.0.2",
     "@nomicfoundation/hardhat-verify": "^1.0.0",
     "@openzeppelin/contracts": "^4.8.3",
+    "@types/uuid": "^9.0.1",
     "hardhat": "^2.14.0",
-    "solhint": "^3.4.1"
+    "solhint": "^3.4.1",
+    "uuid": "^9.0.0"
   },
   "dependencies": {
     "@types/lowdb": "^1.0.11",

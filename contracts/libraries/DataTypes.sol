@@ -10,8 +10,8 @@ library DataTypes {
     }
 
     enum RequestType {
-        MINT,
-        BURN
+        BURN,
+        MINT
     }
 
     struct Request {
