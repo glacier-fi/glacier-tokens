@@ -9,7 +9,14 @@ library DataTypes {
         REJECTED
     }
 
+    enum RequestType {
+        BURN,
+        MINT
+    }
+
     struct Request {
+        uint nonce;
+        RequestType requestType;
         address requester;
         uint256 amount;
         bytes32 blockhash;

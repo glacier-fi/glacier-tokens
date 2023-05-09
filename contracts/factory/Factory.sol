@@ -8,21 +8,16 @@ import {Errors} from "../libraries/Errors.sol";
 import {DataTypes} from "../libraries/DataTypes.sol";
 
 contract Factory is AccessControl {
-    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
+    bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
     bytes32 public constant CONFIRMER_ROLE = keccak256("CONFIRMER_ROLE");
-
-    mapping(string => DataTypes.Request) public mintRequest;
-    mapping(string => DataTypes.Request) public burnRequest;
-
+    mapping(string => uint) public requestNonce;
+    DataTypes.Request[] public requests;
     ERC20PresetMinterPauser public immutable token;
 
-    event MintRequestAdded(DataTypes.Request request);
-    event MintRequestCancelled(DataTypes.Request request);
-    event MintRequestConfirmed(DataTypes.Request request);
-    event MintRequestRejected(DataTypes.Request request);
-    event BurnRequestAdded(DataTypes.Request request);
-    event BurnRequestCancelled(DataTypes.Request request);
+    event RequestAdded(DataTypes.Request request);
+    event RequestRejected(DataTypes.Request request);
+    event RequestCancelled(DataTypes.Request request);
+    event RequestConfirmed(DataTypes.Request request);
 
     constructor(ERC20PresetMinterPauser _token) {
         require(address(_token) != address(0x0), Errors.INVALID_ADDRESS);
@@ -30,18 +25,12 @@ contract Factory is AccessControl {
         token = _token;
 
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _setupRole(MINTER_ROLE, _msgSender());
-        _setupRole(BURNER_ROLE, _msgSender());
+        _setupRole(USER_ROLE, _msgSender());
         _setupRole(CONFIRMER_ROLE, _msgSender());
     }
 
-    modifier onlyMinter() {
-        require(hasRole(MINTER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
-        _;
-    }
-
-    modifier onlyBurner() {
-        require(hasRole(BURNER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
+    modifier onlyUser() {
+        require(hasRole(USER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
         _;
     }
 
@@ -50,78 +39,101 @@ contract Factory is AccessControl {
         _;
     }
 
-    function confirmMintRequest(string memory id) external onlyConfirmer {
-        require(mintRequest[id].amount > 0, Errors.NOT_FOUND);
-        require(mintRequest[id].status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
-        require(token.hasRole(token.MINTER_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
+    function confirmRequest(DataTypes.RequestType requestType, string memory id) external onlyConfirmer {
+        if (requestNonce[id] == 0) {
+            revert(Errors.NOT_FOUND);
+        }
 
-        token.mint(mintRequest[id].requester, mintRequest[id].amount);
+        DataTypes.Request storage request = requests[requestNonce[id] - 1];
 
-        emit MintRequestConfirmed(mintRequest[id]);
+        require(request.requestType == requestType, Errors.SENDER_REQUEST_TYPE_NOT_EQUAL_REQUESTER_REQUEST_TYPE);
+        require(request.status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+
+        if (requestType == DataTypes.RequestType.BURN) {
+            token.burn(request.amount);
+        } else {
+            require(token.hasRole(token.MINTER_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
+
+            token.mint(request.requester, request.amount);
+        }
+
+        request.status = DataTypes.RequestStatus.APPROVED;
+
+        emit RequestConfirmed(request);
     }
 
-    function rejectMintRequest(string memory id) external onlyConfirmer {
-        require(mintRequest[id].amount > 0, Errors.NOT_FOUND);
-        require(mintRequest[id].status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+    function rejectRequest(DataTypes.RequestType requestType, string memory id) external onlyConfirmer {
+        if (requestNonce[id] == 0) {
+            revert(Errors.NOT_FOUND);
+        }
+        DataTypes.Request storage request = requests[requestNonce[id] - 1];
 
-        mintRequest[id].status = DataTypes.RequestStatus.REJECTED;
+        require(request.requestType == requestType, Errors.SENDER_REQUEST_TYPE_NOT_EQUAL_REQUESTER_REQUEST_TYPE);
+        require(request.status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
 
-        emit MintRequestRejected(mintRequest[id]);
+        request.status = DataTypes.RequestStatus.REJECTED;
+
+        if (requestType == DataTypes.RequestType.BURN) {
+            token.transfer(request.requester, request.amount);
+        }
+
+        emit RequestRejected(request);
     }
 
-    function cancelMintRequest(string memory id) external onlyMinter {
-        require(mintRequest[id].amount > 0, Errors.NOT_FOUND);
-        require(mintRequest[id].requester == _msgSender(), Errors.SENDER_NOT_EQUAL_REQUESTER);
-        require(mintRequest[id].status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+    function cancelRequest(DataTypes.RequestType requestType, string memory id) external onlyUser {
+        if (requestNonce[id] == 0) {
+            revert(Errors.NOT_FOUND);
+        }
 
-        mintRequest[id].status = DataTypes.RequestStatus.CANCELLED;
+        DataTypes.Request storage request = requests[requestNonce[id] - 1];
 
-        emit MintRequestCancelled(mintRequest[id]);
+        require(request.requestType == requestType, Errors.SENDER_REQUEST_TYPE_NOT_EQUAL_REQUESTER_REQUEST_TYPE);
+        require(request.requester == _msgSender(), Errors.SENDER_NOT_EQUAL_REQUESTER);
+        require(request.status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+
+        request.status = DataTypes.RequestStatus.CANCELLED;
+
+        if (requestType == DataTypes.RequestType.BURN) {
+            token.transfer(request.requester, request.amount);
+        }
+
+        emit RequestCancelled(request);
     }
 
-    function addMintRequest(uint256 amount, string memory id) external onlyMinter {
+    function addRequest(DataTypes.RequestType requestType, uint256 amount, string memory id) external onlyUser {
         require(amount > 0, Errors.INVALID_AMOUNT);
-        require(mintRequest[id].amount == 0, Errors.REQUEST_ALREADY_EXISTS);
-        require(token.hasRole(token.MINTER_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
 
-        mintRequest[id] = DataTypes.Request({
+        if (requestNonce[id] != 0) {
+            revert(Errors.REQUEST_ALREADY_EXISTS);
+        }
+
+        if (requestType == DataTypes.RequestType.BURN) {
+            uint256 userBalance = token.balanceOf(_msgSender());
+            require(amount <= userBalance, Errors.NOT_ENOUGH_AVAILABLE_USER_BALANCE);
+        } else {
+            require(token.hasRole(token.MINTER_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
+        }
+
+        uint256 blockNumber = block.number;
+        bytes32 blockHash = blockhash(blockNumber);
+
+        requestNonce[id] = requests.length + 1;
+
+        DataTypes.Request memory request = DataTypes.Request({
+            nonce: requestNonce[id],
+            requestType: requestType,
             requester: _msgSender(),
             amount: amount,
-            blockhash: blockhash(block.number),
+            blockhash: blockHash,
             status: DataTypes.RequestStatus.PENDING
         });
 
-        emit MintRequestAdded(mintRequest[id]);
-    }
+        requests.push(request);
 
-    function cancelBurnRequest(string memory id) external onlyBurner {
-        require(burnRequest[id].amount > 0, Errors.NOT_FOUND);
-        require(burnRequest[id].requester == _msgSender(), Errors.SENDER_NOT_EQUAL_REQUESTER);
-        require(burnRequest[id].status == DataTypes.RequestStatus.PENDING, Errors.REQUEST_NOT_PENDING);
+        if (requestType == DataTypes.RequestType.BURN) {
+            token.transferFrom(msg.sender, address(this), amount);
+        }
 
-        burnRequest[id].status = DataTypes.RequestStatus.CANCELLED;
-
-        token.transfer(burnRequest[id].requester, burnRequest[id].amount);
-
-        emit BurnRequestCancelled(mintRequest[id]);
-    }
-
-    function addBurnRequest(uint256 amount, string memory id) external onlyBurner {
-        uint256 userBalance = token.balanceOf(_msgSender());
-
-        require(amount > 0, Errors.INVALID_AMOUNT);
-        require(burnRequest[id].amount == 0, Errors.REQUEST_ALREADY_EXISTS);
-        require(amount <= userBalance, Errors.NOT_ENOUGH_AVAILABLE_USER_BALANCE);
-
-        burnRequest[id] = DataTypes.Request({
-            requester: _msgSender(),
-            amount: amount,
-            blockhash: blockhash(block.number),
-            status: DataTypes.RequestStatus.PENDING
-        });
-
-        token.transferFrom(msg.sender, address(this), amount);
-
-        emit BurnRequestAdded(burnRequest[id]);
+        emit RequestAdded(request);
     }
 }
