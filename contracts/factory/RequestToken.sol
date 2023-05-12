@@ -2,12 +2,14 @@
 pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {DataTypes} from "../libraries/DataTypes.sol";
+import "hardhat/console.sol";
 
-contract RequestToken is AccessControl {
+contract RequestToken is AccessControl, Initializable {
     bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
     bytes32 public constant CONFIRMER_ROLE = keccak256("CONFIRMER_ROLE");
     mapping(string => uint) public requestNonce;
@@ -19,32 +21,20 @@ contract RequestToken is AccessControl {
     event RequestCancelled(DataTypes.Request request);
     event RequestConfirmed(DataTypes.Request request);
 
-    constructor() {
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _setupRole(USER_ROLE, _msgSender());
-        _setupRole(CONFIRMER_ROLE, _msgSender());
-    }
-
-    function init(ERC20PresetMinterPauser _token) external onlyUninitialized {
-        require(address(_token) != address(0x0), Errors.INVALID_ADDRESS);
-
+    function initialize(address admin, ERC20PresetMinterPauser _token) external initializer {
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
         token = _token;
     }
 
-    modifier onlyUninitialized() {
-        require(address(token) == address(0x0), "Token already initialized");
-        _;
-    }
-
     modifier onlyUser() {
-        require(address(token) != address(0x0), "Token Uninitialized");
         require(hasRole(USER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
+        require(address(token) != address(0x0), "Token Uninitialized");
         _;
     }
 
     modifier onlyConfirmer() {
-        require(address(token) != address(0x0), "Token Uninitialized");
         require(hasRole(CONFIRMER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
+        require(address(token) != address(0x0), "Token Uninitialized");
         _;
     }
 

@@ -93,7 +93,7 @@ task('deploy', 'Deploy Glacier tokens contracts').setAction(async (_, HRE) => {
     console.log(`\nDeploying RequestToken...`);
     await waitForTx(requestToken.deployTransaction);
 
-    requestTokenRegistry = await RequestTokenRegistry.connect(deployer).deploy(requestToken.address);
+    requestTokenRegistry = await RequestTokenRegistry.connect(deployer).deploy();
 
     console.log(`\nDeploying RequestTokenRegistry...`);
     await waitForTx(requestTokenRegistry.deployTransaction);
@@ -113,47 +113,44 @@ task('deploy', 'Deploy Glacier tokens contracts').setAction(async (_, HRE) => {
     requestTokenRegistry = RequestTokenRegistry.connect(deployer).attach(requestTokenRegistryAddress);
   }
 
-  console.log(`\n${requestTokenRegistryMsg} Deployed!`);
-  console.log(`RequestTokenRegistry Address: ${requestTokenRegistryAddress}`);
-
   const gTokens = Object.keys(GlacierToken).filter(v => isNaN(Number(v)));
 
   for (let i = 0; i < gTokens.length; i++) {
     let gToken = gTokens[i];
+    if (getDb(networkName).get(`${gToken}`).isEmpty().value()) {
+      let tkn: TokenDeploy = {
+        networkName: networkName,
+        tokenName: gToken,
+        token: await ethers.getContractFactory(gToken),
+        deployer: deployer,
+      };
+      const tokenAddress = await tokenDeploy(tkn);
+      const Token = await ethers.getContractFactory('GlacierToken');
+      const token = Token.connect(deployer).attach(tokenAddress);
 
-    let tkn: TokenDeploy = {
-      networkName: networkName,
-      tokenName: gToken,
-      token: await ethers.getContractFactory(gToken),
-      deployer: deployer,
-    };
+      let tx = await token.grantRole(token.DEFAULT_ADMIN_ROLE(), requestTokenRegistryAddress);
+      await waitForTx(tx);
 
-    const tokenAddress = await tokenDeploy(tkn);
-    const Token = await ethers.getContractFactory('GlacierToken');
-    const token = Token.connect(deployer).attach(tokenAddress);
+      tx = await requestTokenRegistry.createRequestToken(tokenAddress);
+      console.log(`\nCreating RequestToken for ${gToken}`);
+      await waitForTx(tx);
 
-    let tx = await token.grantRole(token.DEFAULT_ADMIN_ROLE(), requestTokenRegistryAddress);
-    await waitForTx(tx);
+      tx = await token.revokeRole(token.DEFAULT_ADMIN_ROLE(), requestTokenRegistryAddress);
+      await waitForTx(tx);
 
-    tx = await requestTokenRegistry.createRequestToken(tokenAddress);
-    console.log(`\nCreating RequestToken for ${gToken}`);
-    await waitForTx(tx);
+      const requestTokens = await requestTokenRegistry.getRequestTokenList();
+      const ERC20PresetMinterPauser = await ethers.getContractFactory('ERC20PresetMinterPauser');
 
-    tx = await token.revokeRole(token.DEFAULT_ADMIN_ROLE(), requestTokenRegistryAddress);
-    await waitForTx(tx);
-  }
+      for (let i = 0; i < requestTokens.length; i++) {
+        requestToken = RequestToken.connect(deployer).attach(requestTokens[i]);
+        const token = ERC20PresetMinterPauser.connect(deployer).attach(await requestToken.token());
+        const symbol = await token.symbol();
 
-  const requestTokens = await requestTokenRegistry.getRequestTokenList();
-  const ERC20PresetMinterPauser = await ethers.getContractFactory('ERC20PresetMinterPauser');
-
-  for (let i = 0; i < requestTokens.length; i++) {
-    requestToken = RequestToken.connect(deployer).attach(requestTokens[i]);
-    const token = ERC20PresetMinterPauser.connect(deployer).attach(await requestToken.token());
-    const symbol = await token.symbol();
-
-    const savedToken = getDb(networkName).get(`${symbol}`).value();
-    getDb(networkName)
-      .set(`${symbol}`, { ...savedToken, ...{ requestToken: requestTokens[i] } })
-      .write();
+        const savedToken = getDb(networkName).get(`${symbol}`).value();
+        getDb(networkName)
+          .set(`${symbol}`, { ...savedToken, ...{ requestToken: requestTokens[i] } })
+          .write();
+      }
+    }
   }
 });

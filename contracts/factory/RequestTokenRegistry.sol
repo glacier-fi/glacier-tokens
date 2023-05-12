@@ -4,17 +4,18 @@ pragma solidity ^0.8.18;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./RequestToken.sol";
+import "hardhat/console.sol";
 
 contract RequestTokenRegistry is Ownable {
-    address public requestTokenImpl;
+    using Clones for address;
+    address public template;
     mapping(address => bool) private _requestTokens;
     address[] private _requestTokenList;
 
-    constructor(address _requestTokenImpl) {
-        require(_requestTokenImpl != address(0x0), Errors.INVALID_ADDRESS);
-
-        requestTokenImpl = _requestTokenImpl;
+    constructor() {
+        template = address(new RequestToken());
     }
 
     event Registered(
@@ -67,7 +68,8 @@ contract RequestTokenRegistry is Ownable {
         emit Registered(requestToken, t.name(), t.symbol(), t.decimals(), address(t));
     }
 
-    function unregister(address requestToken) external onlyOwner {
+    function unregister(address requestToken) public onlyOwner {
+        require(requestToken != address(0x0), Errors.INVALID_ADDRESS);
         require(_requestTokens[requestToken], Errors.NOT_FOUND);
         _requestTokens[requestToken] = false;
 
@@ -78,10 +80,12 @@ contract RequestTokenRegistry is Ownable {
     }
 
     function createRequestToken(ERC20PresetMinterPauser token) public onlyOwner {
-        address clone = Clones.clone(requestTokenImpl);
+        require(address(token) != address(0x0), Errors.INVALID_ADDRESS);
+        require(token.hasRole(token.DEFAULT_ADMIN_ROLE(), address(this)), Errors.UNAUTHORIZED_TOKEN_ACCESS);
 
-        RequestToken(clone).init(token);
+        address clone = template.clone();
 
+        RequestToken(clone).initialize(_msgSender(), token);
         token.grantRole(token.MINTER_ROLE(), clone);
 
         register(clone);
