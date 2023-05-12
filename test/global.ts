@@ -32,45 +32,39 @@ const ids = () => {
 };
 
 export const scenario = async () => {
-  const [admin, minter, burner, confirmer, user, user1] = await ethers.getSigners();
+  const [deployer, minter, burner, confirmer, user, user1] = await ethers.getSigners();
   const { id0, id1, id2 } = ids();
-
   const GlacierToken = await ethers.getContractFactory('GlacierToken');
-  const gCLP = await GlacierToken.deploy('Glacier CLP', 'GCLP', 8);
-  const gUSDT = await GlacierToken.deploy('Glacier USDT', 'USDT', 8);
+  const gCLP = await GlacierToken.connect(deployer).deploy('Glacier CLP', 'GCLP', 8);
 
-  const Factory = await ethers.getContractFactory('Factory');
-  const gCLPFactory = await Factory.deploy(gCLP.address);
-  const gUSDTFactory = await Factory.deploy(gUSDT.address);
+  const RequestTokenRegistry = await ethers.getContractFactory('RequestTokenRegistry');
+  const requestTokenRegistry = await RequestTokenRegistry.connect(deployer).deploy();
 
-  const FactoryRegistry = await ethers.getContractFactory('FactoryRegistry');
-  const factoryRegistry = await FactoryRegistry.deploy();
+  await gCLP.grantRole(gCLP.DEFAULT_ADMIN_ROLE(), requestTokenRegistry.address);
+  await requestTokenRegistry.connect(deployer).createRequestToken(gCLP.address);
+  await gCLP.revokeRole(gCLP.DEFAULT_ADMIN_ROLE(), requestTokenRegistry.address);
 
-  await gCLP.grantRole(gCLP.MINTER_ROLE(), gCLPFactory.address);
-  await gCLP.connect(user).approve(gCLPFactory.address, MAX_UINT_AMOUNT);
+  const requestTokenAdrress = (await requestTokenRegistry.getRequestTokenList())[0];
 
-  await gCLPFactory.grantRole(gCLPFactory.USER_ROLE(), minter.getAddress());
-  await gCLPFactory.grantRole(gCLPFactory.USER_ROLE(), burner.getAddress());
-  await gCLPFactory.grantRole(gCLPFactory.USER_ROLE(), user.getAddress());
-  await gCLPFactory.grantRole(gCLPFactory.CONFIRMER_ROLE(), confirmer.getAddress());
+  const RequestToken = await ethers.getContractFactory('RequestToken');
+  const gCLPRequestToken = RequestToken.connect(deployer).attach(requestTokenAdrress);
 
-  await gCLPFactory.connect(user).addRequest(RequestType.MINT, 100000000000000, id0);
-  await gCLPFactory.connect(confirmer).confirmRequest(RequestType.MINT, id0);
-  await gCLPFactory.connect(user).addRequest(RequestType.BURN, 50000000000000, id1);
+  await gCLP.connect(user).approve(gCLPRequestToken.address, MAX_UINT_AMOUNT);
 
-  await gUSDTFactory.grantRole(gUSDTFactory.USER_ROLE(), minter.getAddress());
-  //await gCLPFactory.connect(user).addBurnRequest(100000000000000, id0);
+  await gCLPRequestToken.grantRole(gCLPRequestToken.USER_ROLE(), minter.getAddress());
+  await gCLPRequestToken.grantRole(gCLPRequestToken.USER_ROLE(), burner.getAddress());
+  await gCLPRequestToken.grantRole(gCLPRequestToken.USER_ROLE(), user.getAddress());
+  await gCLPRequestToken.grantRole(gCLPRequestToken.CONFIRMER_ROLE(), confirmer.getAddress());
 
-  //await gUSDTFactory.connect(user).addMintRequest(100000000000000, id0);
-  // await gUSDTFactory.connect(confirmer).confirmMintRequest(id0);
+  await gCLPRequestToken.connect(user).addRequest(RequestType.MINT, 100000000000000, id0);
+  await gCLPRequestToken.connect(confirmer).confirmRequest(RequestType.MINT, id0);
+  await gCLPRequestToken.connect(user).addRequest(RequestType.BURN, 50000000000000, id1);
 
   return {
-    factoryRegistry,
+    requestTokenRegistry,
     gCLP,
-    gUSDT,
-    gCLPFactory,
-    gUSDTFactory,
-    admin,
+    gCLPRequestToken,
+    deployer,
     minter,
     burner,
     confirmer,

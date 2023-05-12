@@ -1,4 +1,4 @@
-import { task } from "hardhat/config"
+import { task } from 'hardhat/config';
 import { ContractTransaction, ContractFactory, Signer, ethers } from 'ethers';
 import low from 'lowdb';
 import FileSync from 'lowdb/adapters/FileSync';
@@ -7,26 +7,25 @@ enum GlacierToken {
   GCLP,
   GETH,
   GUSDT,
-  GGLMR
+  GGLMR,
 }
 
 type TokenDeploy = {
-  networkName: string
-  tokenName: string
-  token: ContractFactory
-  factory: ContractFactory
-  deployer: Signer
-}
+  networkName: string;
+  tokenName: string;
+  token: ContractFactory;
+  deployer: Signer;
+};
 
 const getDb = (networkName: string) => low(new FileSync(`./deployed-contracts-${networkName}.json`));
 
 const waitForTx = async (tx: ContractTransaction) => {
-  console.log("pending tx:", tx.hash, "\n")
+  console.log('pending tx:', tx.hash, '\n');
   return await tx.wait(1);
-}
+};
 
-const tokenDeploy = async (td: TokenDeploy) => {
-  const db = getDb(td.networkName)
+const tokenDeploy = async (td: TokenDeploy): Promise<string> => {
+  const db = getDb(td.networkName);
 
   let tokenName = td.tokenName;
   let tokenAddress;
@@ -36,112 +35,122 @@ const tokenDeploy = async (td: TokenDeploy) => {
     const token = await td.token.connect(td.deployer).deploy();
     console.log(`\nDeploying Token ${tokenName}...`);
     await waitForTx(token.deployTransaction);
-
-    const factory = await td.factory.connect(td.deployer).deploy(token.address)
-    console.log(`\nDeploying Factory ${tokenName}...`);
-    await waitForTx(factory.deployTransaction);
-
-    tokenAddress = token.address
-    factoryAddress = factory.address
+    tokenAddress = token.address;
 
     db.set(`${td.tokenName}`, {
       address: tokenAddress,
       factory: factoryAddress,
       deployer: token.deployTransaction.from,
     }).write();
-
   } else {
     tokenAddress = db.get(`${td.tokenName}`).value().address;
-    factoryAddress = db.get(`${td.tokenName}`).value().factory;
     tokenName = `${td.tokenName} already`;
   }
 
   console.log(`\n${tokenName} Deployed!`);
   console.log(`Token Address: ${tokenAddress}`);
-  console.log(`Factory Address: ${factoryAddress}`);
-}
 
-task("deploy:token", "Deploy Glacier token")
-  .addParam("tokenName", "Contract Factory")
+  return tokenAddress;
+};
+
+task('deploy:token', 'Deploy Glacier token')
+  .addParam('tokenName', 'Contract Factory')
   .setAction(async (options, HRE) => {
-    const networkName = HRE.network.name
-    const ethers = HRE.ethers
-    const tknName = String(options.tokenName)
+    const networkName = HRE.network.name;
+    const ethers = HRE.ethers;
+    const tknName = String(options.tokenName);
     const deployer = (await ethers.getSigners())[0];
     const Token = await ethers.getContractFactory(String(options.tokenName));
-    const Factory = await ethers.getContractFactory("Factory");
 
     const tkn: TokenDeploy = {
       networkName: networkName,
       tokenName: tknName,
       token: Token,
-      factory: Factory,
-      deployer: deployer
-    }
+      deployer: deployer,
+    };
 
-    await tokenDeploy(tkn)
+    await tokenDeploy(tkn);
   });
 
-task("deploy", "Deploy Glacier tokens contracts")
-  .setAction(async (_, HRE) => {
-    const networkName = HRE.network.name
-    const ethers = HRE.ethers
-    const deployer = (await ethers.getSigners())[0];
-    const Factory = await ethers.getContractFactory("Factory");
-    const FactoryRegistry = await ethers.getContractFactory("FactoryRegistry")
-    
-    console.log(`Network: ${networkName}`);
-    console.log(`Deployer: ${deployer.address}`);
+task('deploy', 'Deploy Glacier tokens contracts').setAction(async (_, HRE) => {
+  const networkName = HRE.network.name;
+  const ethers = HRE.ethers;
+  const deployer = (await ethers.getSigners())[0];
+  const RequestToken = await ethers.getContractFactory('RequestToken');
+  const RequestTokenRegistry = await ethers.getContractFactory('RequestTokenRegistry');
 
-    let factoryRegistry;
-    let factoryRegistryAddress;
-    let factoryMsg;
-    
-    if (getDb(networkName).get("factoryRegistry").isEmpty().value()) {
-      factoryRegistry = await FactoryRegistry.connect(deployer).deploy()
-      console.log(`\nDeploying FactoryRegistry...`);
-      await waitForTx(factoryRegistry.deployTransaction);
+  console.log(`Network: ${networkName}`);
+  console.log(`Deployer: ${deployer.address}`);
 
-      getDb(networkName).set("factoryRegistry", {
-        address: factoryRegistry.address,
-        deployer: factoryRegistry.deployTransaction.from,
-      }).write();
+  let requestToken;
+  let requestTokenRegistry;
+  let requestTokenRegistryAddress;
+  let requestTokenRegistryMsg;
 
-      factoryRegistryAddress = factoryRegistry.address
-      factoryMsg = "FactoryRegistry";
-    } else {
-      factoryRegistryAddress = getDb(networkName).get("factoryRegistry").value().address;
-      factoryMsg = "FactoryRegistry already";
-      factoryRegistry = (await FactoryRegistry.connect(deployer).deploy()).attach(factoryRegistryAddress)
-    }
+  if (getDb(networkName).get('requestTokenRegistry').isEmpty().value()) {
+    requestToken = await RequestToken.connect(deployer).deploy();
 
-    console.log(`\n${factoryMsg} Deployed!`);
-    console.log(`FactoryRegistry Address: ${factoryRegistryAddress}`);
+    console.log(`\nDeploying RequestToken...`);
+    await waitForTx(requestToken.deployTransaction);
 
-    const gTokens = Object.keys(GlacierToken).filter((v) => isNaN(Number(v)));
-    const factories = await factoryRegistry.getFatoriesList()
+    requestTokenRegistry = await RequestTokenRegistry.connect(deployer).deploy();
 
-    for (let i = 0; i < gTokens.length; i++) {
-      let gToken = gTokens[i];
+    console.log(`\nDeploying RequestTokenRegistry...`);
+    await waitForTx(requestTokenRegistry.deployTransaction);
 
+    getDb(networkName)
+      .set('requestTokenRegistry', {
+        address: requestTokenRegistry.address,
+        deployer: requestTokenRegistry.deployTransaction.from,
+      })
+      .write();
+
+    requestTokenRegistryAddress = requestTokenRegistry.address;
+    requestTokenRegistryMsg = 'RequestTokenRegistry';
+  } else {
+    requestTokenRegistryAddress = getDb(networkName).get('requestTokenRegistry').value().address;
+    requestTokenRegistryMsg = 'RequestTokenRegistry already';
+    requestTokenRegistry = RequestTokenRegistry.connect(deployer).attach(requestTokenRegistryAddress);
+  }
+
+  const gTokens = Object.keys(GlacierToken).filter(v => isNaN(Number(v)));
+
+  for (let i = 0; i < gTokens.length; i++) {
+    let gToken = gTokens[i];
+    if (getDb(networkName).get(`${gToken}`).isEmpty().value()) {
       let tkn: TokenDeploy = {
         networkName: networkName,
         tokenName: gToken,
         token: await ethers.getContractFactory(gToken),
-        factory: Factory,
-        deployer: deployer
-      }
-      await tokenDeploy(tkn)
+        deployer: deployer,
+      };
+      const tokenAddress = await tokenDeploy(tkn);
+      const Token = await ethers.getContractFactory('GlacierToken');
+      const token = Token.connect(deployer).attach(tokenAddress);
 
-      let factoryAddress = getDb(networkName).get(`${gToken}`).value().factory
-            
-      if (factories.indexOf(factoryAddress) > -1) {
-        console.log(`\Factory${gToken} already on FactoryRegistry...`);
-        continue;
-      }
-      
-      let tx = await factoryRegistry.registerFactory(factoryAddress, i+1)
-      console.log(`\nAdding Factory${gToken} to FactoryRegistry...`);
+      let tx = await token.grantRole(token.DEFAULT_ADMIN_ROLE(), requestTokenRegistryAddress);
       await waitForTx(tx);
+
+      tx = await requestTokenRegistry.createRequestToken(tokenAddress);
+      console.log(`\nCreating RequestToken for ${gToken}`);
+      await waitForTx(tx);
+
+      tx = await token.revokeRole(token.DEFAULT_ADMIN_ROLE(), requestTokenRegistryAddress);
+      await waitForTx(tx);
+
+      const requestTokens = await requestTokenRegistry.getRequestTokenList();
+      const ERC20PresetMinterPauser = await ethers.getContractFactory('ERC20PresetMinterPauser');
+
+      for (let i = 0; i < requestTokens.length; i++) {
+        requestToken = RequestToken.connect(deployer).attach(requestTokens[i]);
+        const token = ERC20PresetMinterPauser.connect(deployer).attach(await requestToken.token());
+        const symbol = await token.symbol();
+
+        const savedToken = getDb(networkName).get(`${symbol}`).value();
+        getDb(networkName)
+          .set(`${symbol}`, { ...savedToken, ...{ requestToken: requestTokens[i] } })
+          .write();
+      }
     }
-  })
+  }
+});

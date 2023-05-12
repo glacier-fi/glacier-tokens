@@ -2,40 +2,39 @@
 pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {DataTypes} from "../libraries/DataTypes.sol";
+import "hardhat/console.sol";
 
-contract Factory is AccessControl {
+contract RequestToken is AccessControl, Initializable {
     bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
     bytes32 public constant CONFIRMER_ROLE = keccak256("CONFIRMER_ROLE");
     mapping(string => uint) public requestNonce;
     DataTypes.Request[] public requests;
-    ERC20PresetMinterPauser public immutable token;
+    ERC20PresetMinterPauser public token;
 
     event RequestAdded(DataTypes.Request request);
     event RequestRejected(DataTypes.Request request);
     event RequestCancelled(DataTypes.Request request);
     event RequestConfirmed(DataTypes.Request request);
 
-    constructor(ERC20PresetMinterPauser _token) {
-        require(address(_token) != address(0x0), Errors.INVALID_ADDRESS);
-
+    function initialize(address admin, ERC20PresetMinterPauser _token) external initializer {
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
         token = _token;
-
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _setupRole(USER_ROLE, _msgSender());
-        _setupRole(CONFIRMER_ROLE, _msgSender());
     }
 
     modifier onlyUser() {
         require(hasRole(USER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
+        require(address(token) != address(0x0), "Token Uninitialized");
         _;
     }
 
     modifier onlyConfirmer() {
         require(hasRole(CONFIRMER_ROLE, _msgSender()), Errors.UNAUTHORIZED);
+        require(address(token) != address(0x0), "Token Uninitialized");
         _;
     }
 
